@@ -5,7 +5,11 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
-import android.widget.PopupMenu
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.widget.PopupWindow
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -15,7 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.random.Random
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener {
 
     // The six moods the app supports, each mapped to a genre string.
     // This mapping is the core "mood-to-genre" logic described in the
@@ -57,6 +61,17 @@ class MainActivity : AppCompatActivity() {
 
     private var updatingSeekBarProgrammatically = false
 
+    private lateinit var layoutRecent: LinearLayout
+    private lateinit var layoutRecentList: LinearLayout
+    private lateinit var textRecentEmpty: TextView
+    private lateinit var tabMoodSlider: TextView
+    private lateinit var tabSpin: TextView
+    private lateinit var tabRecent: TextView
+
+    // Last 5 mood selections, most recent first. Loaded from and saved
+    // to SharedPreferences so the history survives an app restart.
+    private val recentMoodIndices = mutableListOf<Int>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -65,6 +80,9 @@ class MainActivity : AppCompatActivity() {
 
         layoutMoodPicker = findViewById(R.id.layoutMoodPicker)
         layoutResults = findViewById(R.id.layoutResults)
+        layoutRecent = findViewById(R.id.layoutRecent)
+        layoutRecentList = findViewById(R.id.layoutRecentList)
+        textRecentEmpty = findViewById(R.id.textRecentEmpty)
         layoutEmojiRow = findViewById(R.id.layoutEmojiRow)
 
         textBigEmoji = findViewById(R.id.textBigEmoji)
@@ -81,9 +99,11 @@ class MainActivity : AppCompatActivity() {
 
         val buttonFindSongs: Button = findViewById(R.id.buttonFindSongs)
         val buttonShuffleAgain: Button = findViewById(R.id.buttonShuffleAgain)
-        val tabMoodSlider: TextView = findViewById(R.id.tabMoodSlider)
-        val tabSpin: TextView = findViewById(R.id.tabSpin)
-        val tabRecent: TextView = findViewById(R.id.tabRecent)
+        tabMoodSlider = findViewById(R.id.tabMoodSlider)
+        tabSpin = findViewById(R.id.tabSpin)
+        tabRecent = findViewById(R.id.tabRecent)
+
+        loadRecentMoods()
 
         buildEmojiRow()
 
@@ -108,23 +128,124 @@ class MainActivity : AppCompatActivity() {
         )
         selectMood(if (savedMood in moods.indices) savedMood else Random.nextInt(moods.size))
 
+        setActiveTab(tabMoodSlider)
+
         val buttonMenu: TextView = findViewById(R.id.buttonMenu)
         buttonMenu.setOnClickListener { showMenu(buttonMenu) }
 
         buttonFindSongs.setOnClickListener { showResultsForCurrentMood() }
         buttonShuffleAgain.setOnClickListener { shuffleSongs() }
 
-        // Spin and Recent tabs are planned for a later part of the project
+        // The Spin wheel is a possible future addition; not required for the app to work
         tabSpin.setOnClickListener {
             Toast.makeText(this, "Spin wheel coming in a later update", Toast.LENGTH_SHORT).show()
         }
-        tabRecent.setOnClickListener {
-            Toast.makeText(this, "Recent moods coming in a later update", Toast.LENGTH_SHORT).show()
+        tabRecent.setOnClickListener { showRecentMoods() }
+        tabMoodSlider.setOnClickListener { showMoodPicker() }
+
+        showOnboardingIfNeeded()
+    }
+
+    private fun showMoodPicker() {
+        setActiveTab(tabMoodSlider)
+        layoutResults.visibility = View.GONE
+        layoutRecent.visibility = View.GONE
+        layoutMoodPicker.visibility = View.VISIBLE
+    }
+
+    private fun showRecentMoods() {
+        setActiveTab(tabRecent)
+        layoutMoodPicker.visibility = View.GONE
+        layoutResults.visibility = View.GONE
+        layoutRecent.visibility = View.VISIBLE
+        buildRecentMoodsList()
+    }
+
+    // Highlights whichever tab is active and resets the other two to plain text,
+    // matching the gradient-pill style used for the active tab.
+    private fun setActiveTab(activeTab: TextView) {
+        for (tab in listOf(tabMoodSlider, tabSpin, tabRecent)) {
+            val isActive = tab == activeTab
+            tab.setBackgroundResource(if (isActive) R.drawable.bg_gradient_pill else android.R.color.transparent)
+            tab.setTextColor(android.graphics.Color.parseColor(if (isActive) "#FFFFFF" else "#9CA3AF"))
         }
-        tabMoodSlider.setOnClickListener {
-            // Already on this tab; if results are showing, go back to the picker
-            layoutResults.visibility = View.GONE
-            layoutMoodPicker.visibility = View.VISIBLE
+    }
+
+    // ===================== Onboarding =====================
+
+    private fun showOnboardingIfNeeded() {
+        val hasSeenOnboarding = prefs.getBoolean(PreferencesActivity.KEY_HAS_SEEN_ONBOARDING, false)
+        if (!hasSeenOnboarding) {
+            val container: View = findViewById(R.id.fragmentContainerOnboarding)
+            container.visibility = View.VISIBLE
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainerOnboarding, OnboardingFragment())
+                .commit()
+        }
+    }
+
+    // Called by OnboardingFragment once the user finishes both pages
+    override fun onOnboardingFinished() {
+        supportFragmentManager.findFragmentById(R.id.fragmentContainerOnboarding)?.let {
+            supportFragmentManager.beginTransaction().remove(it).commit()
+        }
+        findViewById<View>(R.id.fragmentContainerOnboarding).visibility = View.GONE
+    }
+
+    // ===================== Recent Moods =====================
+
+    private fun loadRecentMoods() {
+        val saved = prefs.getString(PreferencesActivity.KEY_RECENT_MOODS, "") ?: ""
+        recentMoodIndices.clear()
+        if (saved.isNotEmpty()) {
+            saved.split(",").forEach { token ->
+                token.toIntOrNull()?.let { index ->
+                    if (index in moods.indices) recentMoodIndices.add(index)
+                }
+            }
+        }
+    }
+
+    private fun saveRecentMood(index: Int) {
+        recentMoodIndices.remove(index) // avoid duplicate entries for the same mood
+        recentMoodIndices.add(0, index)
+        while (recentMoodIndices.size > 5) {
+            recentMoodIndices.removeAt(recentMoodIndices.size - 1)
+        }
+        prefs.edit()
+            .putString(PreferencesActivity.KEY_RECENT_MOODS, recentMoodIndices.joinToString(","))
+            .apply()
+    }
+
+    private fun buildRecentMoodsList() {
+        layoutRecentList.removeAllViews()
+
+        if (recentMoodIndices.isEmpty()) {
+            textRecentEmpty.visibility = View.VISIBLE
+            return
+        }
+        textRecentEmpty.visibility = View.GONE
+
+        recentMoodIndices.forEach { index ->
+            val mood = moods[index]
+            val row = TextView(this).apply {
+                text = "${mood.emoji}  ${mood.name}  \u2022  ${mood.genre}"
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 16f
+                setPadding(24, 28, 24, 28)
+                setBackgroundResource(R.drawable.bg_pill)
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                params.bottomMargin = 12
+                layoutParams = params
+                setOnClickListener {
+                    selectMood(index)
+                    showResultsForCurrentMood()
+                }
+            }
+            layoutRecentList.addView(row)
         }
     }
 
@@ -179,7 +300,10 @@ class MainActivity : AppCompatActivity() {
         textResultsHeader.text = "${mood.emoji} ${mood.name} Picks"
         textResultsGenreTag.text = mood.genre
 
+        saveRecentMood(currentMoodIndex)
+
         layoutMoodPicker.visibility = View.GONE
+        layoutRecent.visibility = View.GONE
         layoutResults.visibility = View.VISIBLE
     }
 
@@ -203,19 +327,39 @@ class MainActivity : AppCompatActivity() {
         return pool.filter { allowExplicit || !it.explicit }.take(5).toMutableList()
     }
 
-    // Menu in the top-right corner: opens Preferences or Help via an Intent
+    // Menu in the top-right corner: opens Preferences or Help via an Intent.
+    // Uses a custom PopupWindow (instead of the system PopupMenu) so the
+    // two options can be styled as rounded purple-gradient bubbles that
+    // match the rest of the app, rather than the default white dropdown.
     private fun showMenu(anchor: View) {
-        val popup = PopupMenu(this, anchor)
-        popup.menu.add(0, 1, 0, "Preferences")
-        popup.menu.add(0, 2, 1, "Help")
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                1 -> startActivity(Intent(this, PreferencesActivity::class.java))
-                2 -> startActivity(Intent(this, HelpActivity::class.java))
-            }
+        val popupView = LayoutInflater.from(this).inflate(R.layout.popup_menu, null)
+        val popupWindow = PopupWindow(
+            popupView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
             true
+        )
+        popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        popupWindow.elevation = 12f
+
+        val itemPreferences: TextView = popupView.findViewById(R.id.menuItemPreferences)
+        val itemHelp: TextView = popupView.findViewById(R.id.menuItemHelp)
+
+        itemPreferences.setOnClickListener {
+            popupWindow.dismiss()
+            startActivity(Intent(this, PreferencesActivity::class.java))
         }
-        popup.show()
+        itemHelp.setOnClickListener {
+            popupWindow.dismiss()
+            startActivity(Intent(this, HelpActivity::class.java))
+        }
+
+        // Measure the bubbles first so the popup can be shifted left,
+        // keeping it from running off the right edge of the screen since
+        // the menu button sits in the top-right corner.
+        popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        val xOffset = anchor.width - popupView.measuredWidth
+        popupWindow.showAsDropDown(anchor, xOffset, -12)
     }
 
     private fun buildPlaceholderPools() {

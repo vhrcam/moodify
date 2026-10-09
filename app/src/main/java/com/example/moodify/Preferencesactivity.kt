@@ -16,6 +16,8 @@ class PreferencesActivity : AppCompatActivity() {
         const val PREFS_NAME = "moodify_prefs"
         const val KEY_DEFAULT_MOOD = "default_mood"       // -1 = Random, otherwise mood index
         const val KEY_ALLOW_EXPLICIT = "allow_explicit"
+        const val KEY_HAS_SEEN_ONBOARDING = "has_seen_onboarding"
+        const val KEY_RECENT_MOODS = "recent_moods"        // comma-separated mood indices, most recent first
 
         const val DEFAULT_MOOD_RANDOM = -1
     }
