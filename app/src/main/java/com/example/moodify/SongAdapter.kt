@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 
 /**
  * Adapter that binds a list of Song objects to rows in the RecyclerView.
@@ -30,7 +31,16 @@ class SongAdapter(
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songList[position]
-        holder.albumArt.setImageResource(song.albumArtResId)
+
+        // Glide downloads the album cover in the background and caches it.
+        // The placeholder shows while it loads, or if the song has no cover.
+        Glide.with(holder.albumArt)
+            .load(song.albumArtUrl)
+            .placeholder(R.drawable.placeholder_album_art)
+            .error(R.drawable.placeholder_album_art)
+            .centerCrop()
+            .into(holder.albumArt)
+
         holder.title.text = song.title
         holder.artist.text = song.artist
 

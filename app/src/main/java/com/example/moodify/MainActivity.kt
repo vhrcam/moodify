@@ -2,6 +2,7 @@ package com.example.moodify
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -10,21 +11,26 @@ import android.view.ViewGroup
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.widget.PopupWindow
+import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener {
 
     // The six moods the app supports, each mapped to a genre string.
     // This mapping is the core "mood-to-genre" logic described in the
-    // design document, and is what will drive the real Spotify Search API
-    // query once networking is wired in during a later part.
+    // design document; the genre is what gets sent to Spotify's Search API.
     private val moods = ALL_MOODS
 
     // Saved user preferences (set in PreferencesActivity)
@@ -32,15 +38,7 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         getSharedPreferences(PreferencesActivity.PREFS_NAME, MODE_PRIVATE)
     }
 
-    // Songs marked explicit in the placeholder data. The explicit-content
-    // preference filters these out when it is turned off.
-    private val explicitTitles = setOf("Go Hard", "No Mercy", "Burn It Down", "Alone Again")
-
     private var currentMoodIndex = 0
-
-    // Placeholder song pools, one per mood, standing in for real Spotify
-    // Search API results until that networking is added later.
-    private val moodSongPools = mutableMapOf<String, MutableList<Song>>()
 
     private lateinit var layoutMoodPicker: LinearLayout
     private lateinit var layoutResults: LinearLayout
@@ -57,7 +55,14 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
 
     private lateinit var recyclerViewSongs: RecyclerView
     private lateinit var songAdapter: SongAdapter
-    private var currentSongs = mutableListOf<Song>()
+    private val currentSongs = mutableListOf<Song>()
+
+    private lateinit var progressLoading: ProgressBar
+    private lateinit var textResultsMessage: TextView
+    private lateinit var buttonShuffleAgain: Button
+
+    // The Spotify request currently running, so a new tap can cancel an old one
+    private var fetchJob: Job? = null
 
     private var updatingSeekBarProgrammatically = false
 
@@ -75,8 +80,6 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        buildPlaceholderPools()
 
         layoutMoodPicker = findViewById(R.id.layoutMoodPicker)
         layoutResults = findViewById(R.id.layoutResults)
@@ -97,8 +100,24 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         recyclerViewSongs = findViewById(R.id.recyclerViewSongs)
         recyclerViewSongs.layoutManager = LinearLayoutManager(this)
 
+        songAdapter = SongAdapter(currentSongs) { song ->
+            // Tapping a song opens the Secondary Activity via an Intent,
+            // passing that song's data along as extras.
+            val intent = Intent(this, SecondaryActivity::class.java).apply {
+                putExtra("SONG_TITLE", song.title)
+                putExtra("SONG_ARTIST", song.artist)
+                putExtra("ALBUM_ART_URL", song.albumArtUrl)
+                putExtra("SPOTIFY_URL", song.spotifyUrl)
+            }
+            startActivity(intent)
+        }
+        recyclerViewSongs.adapter = songAdapter
+
+        progressLoading = findViewById(R.id.progressLoading)
+        textResultsMessage = findViewById(R.id.textResultsMessage)
+
         val buttonFindSongs: Button = findViewById(R.id.buttonFindSongs)
-        val buttonShuffleAgain: Button = findViewById(R.id.buttonShuffleAgain)
+        buttonShuffleAgain = findViewById(R.id.buttonShuffleAgain)
         tabMoodSlider = findViewById(R.id.tabMoodSlider)
         tabSpin = findViewById(R.id.tabSpin)
         tabRecent = findViewById(R.id.tabRecent)
@@ -280,22 +299,6 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
 
     private fun showResultsForCurrentMood() {
         val mood = moods[currentMoodIndex]
-        val pool = moodSongPools.getValue(mood.name)
-
-        currentSongs = pickSongs(pool)
-
-        songAdapter = SongAdapter(currentSongs) { song ->
-            // Tapping a song opens the Secondary Activity via an Intent,
-            // passing that song's data along as extras.
-            val intent = Intent(this, SecondaryActivity::class.java).apply {
-                putExtra("SONG_TITLE", song.title)
-                putExtra("SONG_ARTIST", song.artist)
-                putExtra("ALBUM_ART_RES_ID", song.albumArtResId)
-                putExtra("PREVIEW_URL", song.previewUrl)
-            }
-            startActivity(intent)
-        }
-        recyclerViewSongs.adapter = songAdapter
 
         textResultsHeader.text = "${mood.emoji} ${mood.name} Picks"
         textResultsGenreTag.text = mood.genre
@@ -305,23 +308,60 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         layoutMoodPicker.visibility = View.GONE
         layoutRecent.visibility = View.GONE
         layoutResults.visibility = View.VISIBLE
+
+        loadSongs()
     }
 
     private fun shuffleSongs() {
-        val mood = moods[currentMoodIndex]
-        val pool = moodSongPools.getValue(mood.name)
-
-        // Placeholder shuffle: reshuffle this mood's pool and take a new
-        // batch of 5. Once real Spotify data is wired in, this will instead
-        // re-query the Search API with a randomized offset.
-        pool.shuffle()
-        currentSongs.clear()
-        currentSongs.addAll(pickSongs(pool))
-        songAdapter.notifyDataSetChanged()
+        // Each call searches Spotify again at a new random offset,
+        // so every shuffle brings back a different set of songs.
+        loadSongs()
     }
 
-    // Takes up to 5 songs from the pool, skipping explicit songs when the
-    // user has turned explicit content off in Preferences.
+    // Asks Spotify for songs in the current mood's genre and shows them.
+    // Runs in the background so the screen never freezes while waiting.
+    private fun loadSongs() {
+        val mood = moods[currentMoodIndex]
+
+        fetchJob?.cancel()
+        currentSongs.clear()
+        songAdapter.notifyDataSetChanged()
+        textResultsMessage.visibility = View.GONE
+        progressLoading.visibility = View.VISIBLE
+        buttonShuffleAgain.isEnabled = false
+
+        fetchJob = lifecycleScope.launch {
+            try {
+                val results = SpotifyApi.searchTracksForGenre(mood.genre)
+                currentSongs.addAll(pickSongs(results))
+                songAdapter.notifyDataSetChanged()
+
+                if (currentSongs.isEmpty()) {
+                    showResultsMessage("No songs found this time. Tap Shuffle Again to try another set.")
+                }
+            } catch (e: CancellationException) {
+                throw e // a newer request replaced this one; nothing to show
+            } catch (e: SpotifyException) {
+                showResultsMessage(e.message ?: "Something went wrong with Spotify.")
+            } catch (e: Exception) {
+                Log.e("Moodify", "Song search failed", e)
+                showResultsMessage("Couldn't reach Spotify. Check your internet connection and try again.")
+            } finally {
+                if (isActive) {
+                    progressLoading.visibility = View.GONE
+                    buttonShuffleAgain.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun showResultsMessage(message: String) {
+        textResultsMessage.text = message
+        textResultsMessage.visibility = View.VISIBLE
+    }
+
+    // Takes up to 5 songs from Spotify's results, skipping explicit songs
+    // when the user has turned explicit content off in Preferences.
     private fun pickSongs(pool: List<Song>): MutableList<Song> {
         val allowExplicit = prefs.getBoolean(PreferencesActivity.KEY_ALLOW_EXPLICIT, true)
         return pool.filter { allowExplicit || !it.explicit }.take(5).toMutableList()
@@ -360,70 +400,5 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
         val xOffset = anchor.width - popupView.measuredWidth
         popupWindow.showAsDropDown(anchor, xOffset, -12)
-    }
-
-    private fun buildPlaceholderPools() {
-        moodSongPools["Chill"] = buildPool(
-            "Sunset Drive" to "Lo-Fi Collective",
-            "Golden Hour" to "Chill Beats Co.",
-            "Night Bloom" to "Acoustic Dreams",
-            "Slow Motion" to "The Quiet Hour",
-            "Paper Clouds" to "Soft Static",
-            "Afterglow" to "Wavelength"
-        )
-
-        moodSongPools["Hype"] = buildPool(
-            "Turn It Up" to "Bass Riot",
-            "Overdrive" to "Neon Pulse",
-            "Adrenaline" to "Volt Crew",
-            "Higher" to "Skyline",
-            "Electric" to "Pulse Nation",
-            "Go Hard" to "Riot Squad"
-        )
-
-        moodSongPools["Happy"] = buildPool(
-            "Sunny Days" to "The Brightsides",
-            "Good Vibes" to "Daylight",
-            "Feel Good" to "Citrus",
-            "Smile On" to "Honeybeat",
-            "Up and Away" to "Skylark",
-            "Bright Side" to "Golden Hour Kids"
-        )
-
-        moodSongPools["Sad"] = buildPool(
-            "Rainy Window" to "Blue Hour",
-            "Empty Room" to "Hollow Sky",
-            "Fading Light" to "Grey November",
-            "Quiet Tears" to "Nocturne",
-            "Heavy Heart" to "Solace",
-            "Alone Again" to "Midnight Ivy"
-        )
-
-        moodSongPools["Angry"] = buildPool(
-            "Breaking Point" to "Riot Line",
-            "No Mercy" to "Iron Grip",
-            "Static Rage" to "Voltage",
-            "Burn It Down" to "Fault Line",
-            "Last Straw" to "Grit",
-            "Full Throttle" to "Warhead"
-        )
-
-        moodSongPools["Focused"] = buildPool(
-            "Deep Work" to "Neural",
-            "Clarity" to "Mind Palace",
-            "Flow State" to "Studybeats",
-            "Quiet Focus" to "Minimal",
-            "Steady Hands" to "Calibrate",
-            "Concentration" to "Signal"
-        )
-    }
-
-    // Convenience method: pass title-artist pairs to quickly build a
-    // placeholder song pool.
-    private fun buildPool(vararg titleArtistPairs: Pair<String, String>): MutableList<Song> {
-        return titleArtistPairs.map { (title, artist) ->
-            val previewUrl = "https://open.spotify.com/search/${title.replace(" ", "%20")}"
-            Song(title, artist, R.drawable.placeholder_album_art, previewUrl, title in explicitTitles)
-        }.toMutableList()
     }
 }

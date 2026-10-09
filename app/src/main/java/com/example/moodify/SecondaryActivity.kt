@@ -7,6 +7,7 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.bumptech.glide.Glide
 
 class SecondaryActivity : AppCompatActivity() {
 
@@ -17,8 +18,8 @@ class SecondaryActivity : AppCompatActivity() {
         // Pull the song data passed in via the Intent from MainActivity
         val title = intent.getStringExtra("SONG_TITLE")
         val artist = intent.getStringExtra("SONG_ARTIST")
-        val albumArtResId = intent.getIntExtra("ALBUM_ART_RES_ID", R.drawable.placeholder_album_art)
-        val previewUrl = intent.getStringExtra("PREVIEW_URL")
+        val albumArtUrl = intent.getStringExtra("ALBUM_ART_URL")
+        val spotifyUrl = intent.getStringExtra("SPOTIFY_URL")
 
         val albumArt: ImageView = findViewById(R.id.imageAlbumArtLarge)
         val titleText: TextView = findViewById(R.id.textSongTitleLarge)
@@ -28,14 +29,21 @@ class SecondaryActivity : AppCompatActivity() {
 
         backButton.setOnClickListener { finish() }
 
-        albumArt.setImageResource(albumArtResId)
+        Glide.with(this)
+            .load(albumArtUrl)
+            .placeholder(R.drawable.placeholder_album_art)
+            .error(R.drawable.placeholder_album_art)
+            .centerCrop()
+            .into(albumArt)
+
         titleText.text = title
         artistText.text = artist
 
+        // Opens this exact track in the Spotify app (or the browser if
+        // Spotify isn't installed)
         openInSpotifyButton.setOnClickListener {
-            previewUrl?.let {
-                val openLink = Intent(Intent.ACTION_VIEW, Uri.parse(it))
-                startActivity(openLink)
+            spotifyUrl?.let {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)))
             }
         }
     }

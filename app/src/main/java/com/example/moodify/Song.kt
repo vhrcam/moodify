@@ -1,19 +1,16 @@
 package com.example.moodify
 
 /**
- * Simple data model for a song shown in the list.
+ * One song returned from Spotify's Search API.
  *
- * NOTE: albumArtResId is a placeholder local drawable for now.
- * Once the real Spotify Search API call is wired in (a later part of the
- * project), this will be replaced with an album art URL loaded over the
- * network using an image-loading library such as Glide.
- *
- * "explicit" is used by the explicit-content preference to filter results.
+ * albumArtUrl  - link to the album cover image (loaded with Glide)
+ * spotifyUrl   - link that opens this exact track in the Spotify app
+ * explicit     - Spotify's own explicit flag, used by the explicit-content preference
  */
 data class Song(
     val title: String,
     val artist: String,
-    val albumArtResId: Int,
-    val previewUrl: String,
+    val albumArtUrl: String?,
+    val spotifyUrl: String,
     val explicit: Boolean = false
 )
