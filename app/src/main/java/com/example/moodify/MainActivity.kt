@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.PopupMenu
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -12,6 +13,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,14 +21,16 @@ class MainActivity : AppCompatActivity() {
     // This mapping is the core "mood-to-genre" logic described in the
     // design document, and is what will drive the real Spotify Search API
     // query once networking is wired in during a later part.
-    private val moods = listOf(
-        Mood("Chill", "\uD83D\uDE0C", "lofi"),
-        Mood("Hype", "\uD83D\uDD25", "hip hop"),
-        Mood("Happy", "\uD83D\uDE0A", "pop"),
-        Mood("Sad", "\uD83D\uDE22", "blues"),
-        Mood("Angry", "\uD83D\uDE24", "rock"),
-        Mood("Focused", "\uD83C\uDFAF", "instrumental")
-    )
+    private val moods = ALL_MOODS
+
+    // Saved user preferences (set in PreferencesActivity)
+    private val prefs by lazy {
+        getSharedPreferences(PreferencesActivity.PREFS_NAME, MODE_PRIVATE)
+    }
+
+    // Songs marked explicit in the placeholder data. The explicit-content
+    // preference filters these out when it is turned off.
+    private val explicitTitles = setOf("Go Hard", "No Mercy", "Burn It Down", "Alone Again")
 
     private var currentMoodIndex = 0
 
@@ -98,8 +102,14 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
 
-        // Show the first mood by default
-        selectMood(0)
+        // Start on the user's default mood (or a random one if they chose Random)
+        val savedMood = prefs.getInt(
+            PreferencesActivity.KEY_DEFAULT_MOOD, 0
+        )
+        selectMood(if (savedMood in moods.indices) savedMood else Random.nextInt(moods.size))
+
+        val buttonMenu: TextView = findViewById(R.id.buttonMenu)
+        buttonMenu.setOnClickListener { showMenu(buttonMenu) }
 
         buttonFindSongs.setOnClickListener { showResultsForCurrentMood() }
         buttonShuffleAgain.setOnClickListener { shuffleSongs() }
@@ -151,7 +161,7 @@ class MainActivity : AppCompatActivity() {
         val mood = moods[currentMoodIndex]
         val pool = moodSongPools.getValue(mood.name)
 
-        currentSongs = pool.take(5).toMutableList()
+        currentSongs = pickSongs(pool)
 
         songAdapter = SongAdapter(currentSongs) { song ->
             // Tapping a song opens the Secondary Activity via an Intent,
@@ -182,8 +192,30 @@ class MainActivity : AppCompatActivity() {
         // re-query the Search API with a randomized offset.
         pool.shuffle()
         currentSongs.clear()
-        currentSongs.addAll(pool.take(5))
+        currentSongs.addAll(pickSongs(pool))
         songAdapter.notifyDataSetChanged()
+    }
+
+    // Takes up to 5 songs from the pool, skipping explicit songs when the
+    // user has turned explicit content off in Preferences.
+    private fun pickSongs(pool: List<Song>): MutableList<Song> {
+        val allowExplicit = prefs.getBoolean(PreferencesActivity.KEY_ALLOW_EXPLICIT, true)
+        return pool.filter { allowExplicit || !it.explicit }.take(5).toMutableList()
+    }
+
+    // Menu in the top-right corner: opens Preferences or Help via an Intent
+    private fun showMenu(anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, 1, 0, "Preferences")
+        popup.menu.add(0, 2, 1, "Help")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> startActivity(Intent(this, PreferencesActivity::class.java))
+                2 -> startActivity(Intent(this, HelpActivity::class.java))
+            }
+            true
+        }
+        popup.show()
     }
 
     private fun buildPlaceholderPools() {
@@ -247,7 +279,7 @@ class MainActivity : AppCompatActivity() {
     private fun buildPool(vararg titleArtistPairs: Pair<String, String>): MutableList<Song> {
         return titleArtistPairs.map { (title, artist) ->
             val previewUrl = "https://open.spotify.com/search/${title.replace(" ", "%20")}"
-            Song(title, artist, R.drawable.placeholder_album_art, previewUrl)
+            Song(title, artist, R.drawable.placeholder_album_art, previewUrl, title in explicitTitles)
         }.toMutableList()
     }
 }

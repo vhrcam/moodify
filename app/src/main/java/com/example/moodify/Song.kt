@@ -7,10 +7,13 @@ package com.example.moodify
  * Once the real Spotify Search API call is wired in (a later part of the
  * project), this will be replaced with an album art URL loaded over the
  * network using an image-loading library such as Glide.
+ *
+ * "explicit" is used by the explicit-content preference to filter results.
  */
 data class Song(
     val title: String,
     val artist: String,
     val albumArtResId: Int,
-    val previewUrl: String
+    val previewUrl: String,
+    val explicit: Boolean = false
 )

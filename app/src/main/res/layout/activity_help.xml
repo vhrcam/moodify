@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#12121A"
+    android:fillViewport="true"
+    tools:context=".HelpActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/buttonBack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="\u2190"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Help"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="About Moodify"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Moodify helps you find music that matches how you feel. Pick a mood and the app suggests five songs to match it. Tap any song to see its album cover, artist, and a link to open it in Spotify."
+            android:textColor="#D1D5DB"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="How moods become songs"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Every mood is matched to a music genre, so the results are never a mystery:\n\n\uD83D\uDE0C Chill \u2192 lofi\n\uD83D\uDD25 Hype \u2192 hip hop\n\uD83D\uDE0A Happy \u2192 pop\n\uD83D\uDE22 Sad \u2192 blues\n\uD83D\uDE24 Angry \u2192 rock\n\uD83C\uDFAF Focused \u2192 instrumental\n\nAfter you tap Find Songs, Moodify builds a list of five songs from that genre. Tap Shuffle Again for a fresh set from the same mood."
+            android:textColor="#D1D5DB"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="How preferences affect the app"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Default mood: the mood that is already selected when you open the app. Choose Random to start on a different mood every time.\n\nExplicit content: when this is turned off, songs marked explicit are left out of your results, so you may see fewer than five songs for some moods.\n\nYour preferences are saved automatically and will still be set the next time you open the app."
+            android:textColor="#D1D5DB"
+            android:textSize="14sp"
+            android:paddingBottom="24dp" />
+
+    </LinearLayout>
+
+</ScrollView>
