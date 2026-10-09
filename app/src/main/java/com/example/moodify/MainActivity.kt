@@ -15,7 +15,6 @@ import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -71,6 +70,12 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
     private lateinit var textRecentEmpty: TextView
     private lateinit var tabMoodSlider: TextView
     private lateinit var tabSpin: TextView
+
+    private lateinit var layoutSpin: LinearLayout
+    private lateinit var moodWheel: MoodWheelView
+    private lateinit var textSpinResult: TextView
+    private lateinit var buttonSpin: Button
+    private lateinit var buttonSpinFindSongs: Button
     private lateinit var tabRecent: TextView
 
     // Last 5 mood selections, most recent first. Loaded from and saved
@@ -84,6 +89,11 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         layoutMoodPicker = findViewById(R.id.layoutMoodPicker)
         layoutResults = findViewById(R.id.layoutResults)
         layoutRecent = findViewById(R.id.layoutRecent)
+        layoutSpin = findViewById(R.id.layoutSpin)
+        moodWheel = findViewById(R.id.moodWheel)
+        textSpinResult = findViewById(R.id.textSpinResult)
+        buttonSpin = findViewById(R.id.buttonSpin)
+        buttonSpinFindSongs = findViewById(R.id.buttonSpinFindSongs)
         layoutRecentList = findViewById(R.id.layoutRecentList)
         textRecentEmpty = findViewById(R.id.textRecentEmpty)
         layoutEmojiRow = findViewById(R.id.layoutEmojiRow)
@@ -155,10 +165,27 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         buttonFindSongs.setOnClickListener { showResultsForCurrentMood() }
         buttonShuffleAgain.setOnClickListener { shuffleSongs() }
 
-        // The Spin wheel is a possible future addition; not required for the app to work
-        tabSpin.setOnClickListener {
-            Toast.makeText(this, "Spin wheel coming in a later update", Toast.LENGTH_SHORT).show()
+        tabSpin.setOnClickListener { showSpinWheel() }
+
+        // Spin the wheel; when it stops, that mood becomes the selected mood
+        buttonSpin.setOnClickListener {
+            // Hide the button and clear the last result while the wheel spins.
+            // INVISIBLE (not GONE) keeps their space so the wheel doesn't jump.
+            buttonSpin.visibility = View.INVISIBLE
+            buttonSpinFindSongs.visibility = View.INVISIBLE
+            textSpinResult.text = " "
+            moodWheel.spin()
         }
+        moodWheel.onSpinFinished = { index ->
+            selectMood(index)
+            val mood = moods[index]
+            textSpinResult.text = "${mood.emoji} ${mood.name}"
+            buttonSpin.text = "Spin Again \uD83C\uDFA1"
+            buttonSpin.visibility = View.VISIBLE
+            buttonSpinFindSongs.text = "Find ${mood.name} Songs \u2728"
+            buttonSpinFindSongs.visibility = View.VISIBLE
+        }
+        buttonSpinFindSongs.setOnClickListener { showResultsForCurrentMood() }
         tabRecent.setOnClickListener { showRecentMoods() }
         tabMoodSlider.setOnClickListener { showMoodPicker() }
 
@@ -169,6 +196,7 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         setActiveTab(tabMoodSlider)
         layoutResults.visibility = View.GONE
         layoutRecent.visibility = View.GONE
+        layoutSpin.visibility = View.GONE
         layoutMoodPicker.visibility = View.VISIBLE
     }
 
@@ -176,8 +204,17 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
         setActiveTab(tabRecent)
         layoutMoodPicker.visibility = View.GONE
         layoutResults.visibility = View.GONE
+        layoutSpin.visibility = View.GONE
         layoutRecent.visibility = View.VISIBLE
         buildRecentMoodsList()
+    }
+
+    private fun showSpinWheel() {
+        setActiveTab(tabSpin)
+        layoutMoodPicker.visibility = View.GONE
+        layoutResults.visibility = View.GONE
+        layoutRecent.visibility = View.GONE
+        layoutSpin.visibility = View.VISIBLE
     }
 
     // Highlights whichever tab is active and resets the other two to plain text,
@@ -307,6 +344,7 @@ class MainActivity : AppCompatActivity(), OnboardingFragment.OnboardingListener 
 
         layoutMoodPicker.visibility = View.GONE
         layoutRecent.visibility = View.GONE
+        layoutSpin.visibility = View.GONE
         layoutResults.visibility = View.VISIBLE
 
         loadSongs()

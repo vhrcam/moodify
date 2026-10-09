@@ -13,22 +13,11 @@
         android:gravity="center"
         android:padding="32dp">
 
-        <FrameLayout
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:background="@drawable/bg_circle_gradient">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="♪"
-                android:textColor="#FFFFFF"
-                android:textSize="56sp"
-                android:includeFontPadding="false"
-                android:translationY="-6dp" />
-
-        </FrameLayout>
+        <ImageView
+            android:layout_width="104dp"
+            android:layout_height="104dp"
+            android:src="@drawable/ic_moodify_logo"
+            android:contentDescription="Moodify logo" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -186,11 +175,29 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="&#127911;  Pick a mood that matches how you feel"
+                android:text="&#127898;&#65039;  Mood Slider: tap an emoji or slide to your mood"
                 android:textColor="#D1D5DB"
                 android:textSize="15sp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp" />
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="&#127905;  Spin: can\'t decide? Let the wheel pick"
+                android:textColor="#D1D5DB"
+                android:textSize="15sp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="&#128338;  Recent: jump back to a mood you\'ve used"
+                android:textColor="#D1D5DB"
+                android:textSize="15sp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -198,8 +205,8 @@
                 android:text="&#10024;  Get 5 songs for that mood instantly"
                 android:textColor="#D1D5DB"
                 android:textSize="15sp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp" />
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -207,8 +214,8 @@
                 android:text="&#128260;  Shuffle again anytime for a new set"
                 android:textColor="#D1D5DB"
                 android:textSize="15sp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp" />
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -216,8 +223,8 @@
                 android:text="&#127925;  Tap a song to see details and open it in Spotify"
                 android:textColor="#D1D5DB"
                 android:textSize="15sp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp" />
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp" />
 
             <Button
                 android:id="@+id/buttonIntroContinue"
