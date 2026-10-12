@@ -4,14 +4,12 @@ Moodify is an Android app that turns your mood into music. Pick a mood with an e
 
 Built in Kotlin with Android Views/XML.
 
-<!-- Screenshots: add images to a /screenshots folder and uncomment
-<p>
-  <img src="screenshots/main.png" width="200">
-  <img src="screenshots/spin.png" width="200">
-  <img src="screenshots/detail.png" width="200">
-  <img src="screenshots/preferences.png" width="200">
+<p align="center">
+  <img src="screenshots/mood-slider.png" width="200" alt="Mood Slider">
+  <img src="screenshots/spin-result.png" width="200" alt="Spin wheel">
+  <img src="screenshots/song-list.png" width="200" alt="Song results">
+  <img src="screenshots/song-detail.png" width="200" alt="Song detail">
 </p>
--->
 
 ## Features
 
@@ -25,6 +23,40 @@ Built in Kotlin with Android Views/XML.
 - **Onboarding:** a short first-launch setup that asks about explicit content and explains how the app works.
 - **Help screen:** explains how to use the app and lists which genre each mood maps to.
 - If Spotify can't be reached, the app shows a clear message instead of crashing.
+
+## Along the Way
+
+How Moodify changed from the first build to 1.0.
+
+**1. First build (Sep 21, 2026):** the Mood Slider and a song detail screen, using placeholder songs and a plain white detail page.
+
+| Mood Slider | Placeholder songs | Song detail |
+|:---:|:---:|:---:|
+| <img src="screenshots/part2-main.png" width="200"> | <img src="screenshots/part2-songs.png" width="200"> | <img src="screenshots/part2-detail.png" width="200"> |
+
+**2. Preferences and Help (Sep 28):** a ☰ menu (still the default Android dropdown) that opens new Preferences and Help screens.
+
+| Menu | Preferences | Help |
+|:---:|:---:|:---:|
+| <img src="screenshots/part3-menu.png" width="200"> | <img src="screenshots/part3-preferences.png" width="200"> | <img src="screenshots/part3-help.png" width="200"> |
+
+**3. Onboarding and Recent (Oct 5):** a first-launch setup with a round logo, a Recent tab and the menu as gradient bubbles.
+
+| Welcome | Recent | Menu |
+|:---:|:---:|:---:|
+| <img src="screenshots/part4-welcome.png" width="200"> | <img src="screenshots/part4-recent.png" width="200"> | <img src="screenshots/part4-menu.png" width="200"> |
+
+**4. Real Spotify songs (Oct 7):** real tracks and album art from the Spotify API, a dark detail page, and Open in Spotify going to the real track.
+
+| Spotify results | Song detail | Open in Spotify |
+|:---:|:---:|:---:|
+| <img src="screenshots/part5-songs.png" width="200"> | <img src="screenshots/part5-detail.png" width="200"> | <img src="screenshots/part5-spotify.png" width="200"> |
+
+**5. Moodify 1.0 (Oct 8):** the Spin wheel, a new app-icon logo, chevron back buttons, and one purple across the tabs and menu.
+
+| New logo | Spin wheel | Menu |
+|:---:|:---:|:---:|
+| <img src="screenshots/welcome.png" width="200"> | <img src="screenshots/spin-result.png" width="200"> | <img src="screenshots/menu.png" width="200"> |
 
 ## Mood → Genre
 
